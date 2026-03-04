@@ -32,6 +32,21 @@ describe('youtube subtitles utils', () => {
     expect(snapshot?.text).toBe('Hello world');
   });
 
+  it('collapses duplicated ABAB subtitle sequences', () => {
+    document.body.innerHTML = `
+      <div class="ytp-caption-window-container">
+        <span class="ytp-caption-segment">And another component</span>
+        <span class="ytp-caption-segment">which is really important</span>
+        <span class="ytp-caption-segment">And another component</span>
+        <span class="ytp-caption-segment">which is really important</span>
+      </div>
+    `;
+
+    const snapshot = extractSubtitleSnapshot(document);
+    expect(snapshot?.segments).toEqual(['And another component', 'which is really important']);
+    expect(snapshot?.text).toBe('And another component which is really important');
+  });
+
   it('returns null when subtitle text is empty', () => {
     document.body.innerHTML = `
       <div class="ytp-caption-window-container">
