@@ -40,6 +40,7 @@ class YouTubeSubtitleTranslator {
   private readonly inFlightSegments: Set<string>;
   private flushTimer: number | null;
   private wholeSubtitleInFlightText: string | null;
+  private subtitleVersion: number;
 
   constructor() {
     this.container = document.createElement('div');
@@ -52,6 +53,7 @@ class YouTubeSubtitleTranslator {
     this.inFlightSegments = new Set<string>();
     this.flushTimer = null;
     this.wholeSubtitleInFlightText = null;
+    this.subtitleVersion = 0;
 
     this.container.id = 'lexibridge-youtube-bilingual';
     this.container.style.position = 'fixed';
@@ -108,11 +110,14 @@ class YouTubeSubtitleTranslator {
     if (!this.prepareSnapshot(snapshot)) {
       return;
     }
+    this.subtitleVersion += 1;
+    this.resetQueueForLatestSubtitle();
 
     const sourceText = snapshot.text;
+    const currentVersion = this.subtitleVersion;
     const completed = this.renderPendingSubtitle(snapshot);
     const candidates = this.collectBatchCandidates(snapshot.segments);
-    this.enqueueBatch(candidates);
+    this.enqueueBatch(candidates, currentVersion);
 
     if (completed) {
       return;
@@ -121,26 +126,29 @@ class YouTubeSubtitleTranslator {
     // 优先保证时效：即使批处理还在排队，也并行发起整句兜底翻译
     // 避免出现“说了多句才翻一句”的体感延迟。
     if (candidates.length) {
-      void this.translateWholeSubtitleOnce(sourceText);
+      void this.translateWholeSubtitleOnce(sourceText, currentVersion);
       return;
     }
 
-    await this.translateWholeSubtitle(sourceText);
+    await this.translateWholeSubtitle(sourceText, currentVersion);
   }
 
-  private enqueueBatch(segments: string[]): void {
+  private enqueueBatch(segments: string[], version: number): void {
     segments.forEach((segment) => this.pendingSegments.add(segment));
     if (!this.pendingSegments.size || this.flushTimer !== null) {
       return;
     }
 
     this.flushTimer = window.setTimeout(() => {
-      void this.flushPendingTranslations();
+      void this.flushPendingTranslations(version);
     }, BATCH_WINDOW_MS);
   }
 
-  private async flushPendingTranslations(): Promise<void> {
+  private async flushPendingTranslations(version: number): Promise<void> {
     this.flushTimer = null;
+    if (version !== this.subtitleVersion) {
+      return;
+    }
 
     const batch = [...this.pendingSegments].slice(0, MAX_BATCH_SIZE);
     if (!batch.length) {
@@ -163,6 +171,11 @@ class YouTubeSubtitleTranslator {
       timestamp: Date.now(),
     })) as BatchTranslateResponse;
 
+    if (version !== this.subtitleVersion) {
+      batch.forEach((segment) => this.inFlightSegments.delete(segment));
+      return;
+    }
+
     if (response.success && response.data?.length) {
       const translatedSegments = response.data.map((item) => item.translatedText ?? '');
       mergeBatchTranslations(this.translationCache, batch, translatedSegments);
@@ -172,7 +185,7 @@ class YouTubeSubtitleTranslator {
     batch.forEach((segment) => this.inFlightSegments.delete(segment));
 
     if (this.pendingSegments.size > 0) {
-      this.enqueueBatch([]);
+      this.enqueueBatch([], version);
       return;
     }
 
@@ -183,7 +196,7 @@ class YouTubeSubtitleTranslator {
 
     const composed = composeTranslatedSubtitle(latestSnapshot.segments, this.translationCache);
     if (!composed) {
-      void this.translateWholeSubtitleOnce(latestSnapshot.text);
+      void this.translateWholeSubtitleOnce(latestSnapshot.text, version);
     }
   }
 
@@ -235,7 +248,7 @@ class YouTubeSubtitleTranslator {
     );
   }
 
-  private async translateWholeSubtitle(sourceText: string): Promise<void> {
+  private async translateWholeSubtitle(sourceText: string, version: number): Promise<void> {
     const response = (await chrome.runtime.sendMessage({
       type: 'TRANSLATE',
       payload: {
@@ -247,7 +260,7 @@ class YouTubeSubtitleTranslator {
     })) as TranslateResponse;
 
     // 只渲染最新字幕，避免慢响应覆盖新字幕。
-    if (sourceText !== this.lastSubtitleText) {
+    if (version !== this.subtitleVersion || sourceText !== this.lastSubtitleText) {
       return;
     }
 
@@ -259,19 +272,27 @@ class YouTubeSubtitleTranslator {
     this.translatedLine.textContent = response.error?.message ?? 'Translation failed';
   }
 
-  private async translateWholeSubtitleOnce(sourceText: string): Promise<void> {
+  private async translateWholeSubtitleOnce(sourceText: string, version: number): Promise<void> {
     if (this.wholeSubtitleInFlightText === sourceText) {
       return;
     }
 
     this.wholeSubtitleInFlightText = sourceText;
     try {
-      await this.translateWholeSubtitle(sourceText);
+      await this.translateWholeSubtitle(sourceText, version);
     } finally {
       if (this.wholeSubtitleInFlightText === sourceText) {
         this.wholeSubtitleInFlightText = null;
       }
     }
+  }
+
+  private resetQueueForLatestSubtitle(): void {
+    if (this.flushTimer !== null) {
+      window.clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    this.pendingSegments.clear();
   }
 }
 
