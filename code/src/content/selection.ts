@@ -31,16 +31,24 @@ interface TranslateResponse {
 const POPUP_SIZE = { width: 360, height: 120 };
 const FALLBACK_RECT = { left: 24, top: 24, bottom: 24 };
 const DEFAULT_SHORTCUT = 'Alt+T';
+const LOCAL_CACHE_TTL_MS = 10 * 60 * 1000;
+const LOCAL_CACHE_MAX_SIZE = 200;
 
 export class SelectionTranslator {
   private readonly popup: TranslationPopup;
   private shortcut: string;
   private initialized: boolean;
+  private readonly localCache: Map<string, { translatedText: string; savedAt: number }>;
+  private readonly inFlightRequests: Map<string, Promise<TranslateResponse>>;
+  private requestVersion: number;
 
   constructor() {
     this.popup = new TranslationPopup();
     this.shortcut = DEFAULT_SHORTCUT;
     this.initialized = false;
+    this.localCache = new Map();
+    this.inFlightRequests = new Map();
+    this.requestVersion = 0;
   }
 
   init(): void {
@@ -98,6 +106,15 @@ export class SelectionTranslator {
     }
 
     const { text, position } = context;
+    this.requestVersion += 1;
+    const version = this.requestVersion;
+    const cacheKey = this.buildCacheKey(text);
+    const cached = this.readFromLocalCache(cacheKey);
+    if (cached) {
+      this.popup.show(cached, position);
+      return;
+    }
+
     this.popup.show('Translating...', position);
 
     const payload: TranslatePayload = {
@@ -106,12 +123,15 @@ export class SelectionTranslator {
       domain: window.location.hostname,
     };
 
-    const response = (await chrome.runtime.sendMessage({
-      type: 'TRANSLATE',
-      payload,
-      timestamp: Date.now(),
-    })) as TranslateResponse;
+    const response = await this.translateWithDedup(cacheKey, payload);
 
+    if (version !== this.requestVersion) {
+      return;
+    }
+
+    if (response.success && response.data?.translatedText) {
+      this.saveToLocalCache(cacheKey, response.data.translatedText);
+    }
     this.renderTranslationResponse(response, position);
   }
 
@@ -141,6 +161,62 @@ export class SelectionTranslator {
     }
 
     this.popup.show(response.error?.message ?? 'Translation failed', position);
+  }
+
+  private buildCacheKey(text: string): string {
+    return `${window.location.hostname}::zh-CN::${text}`;
+  }
+
+  private readFromLocalCache(cacheKey: string): string | null {
+    const cached = this.localCache.get(cacheKey);
+    if (!cached) {
+      return null;
+    }
+
+    if (Date.now() - cached.savedAt > LOCAL_CACHE_TTL_MS) {
+      this.localCache.delete(cacheKey);
+      return null;
+    }
+
+    return cached.translatedText;
+  }
+
+  private saveToLocalCache(cacheKey: string, translatedText: string): void {
+    this.localCache.set(cacheKey, { translatedText, savedAt: Date.now() });
+    this.trimLocalCacheIfNeeded();
+  }
+
+  private trimLocalCacheIfNeeded(): void {
+    while (this.localCache.size > LOCAL_CACHE_MAX_SIZE) {
+      const firstKey = this.localCache.keys().next().value;
+      if (!firstKey) {
+        return;
+      }
+      this.localCache.delete(firstKey);
+    }
+  }
+
+  private async translateWithDedup(
+    cacheKey: string,
+    payload: TranslatePayload,
+  ): Promise<TranslateResponse> {
+    const existing = this.inFlightRequests.get(cacheKey);
+    if (existing) {
+      return existing;
+    }
+
+    const request = (
+      chrome.runtime.sendMessage({
+        type: 'TRANSLATE',
+        payload,
+        timestamp: Date.now(),
+      }) as Promise<TranslateResponse>
+    ).finally(() => {
+      this.inFlightRequests.delete(cacheKey);
+    });
+
+    this.inFlightRequests.set(cacheKey, request);
+    return request;
   }
 
   private getSelectionText(selection: Selection | null): string {
