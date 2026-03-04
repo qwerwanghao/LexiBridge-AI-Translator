@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "LexiBridge AI Translator",
+  "version": "0.1.0",
+  "description": "AI-powered translator for selection, page, PDF and YouTube subtitles.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://*/*", "http://*/*"],
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "options_page": "src/options/index.html",
+  "action": {
+    "default_title": "LexiBridge"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/selection.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["src/content/youtube.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/page.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/pdf.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/options/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

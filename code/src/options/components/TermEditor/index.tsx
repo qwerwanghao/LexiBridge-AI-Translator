@@ -1,0 +1,1 @@
+export { TermEditor } from './TermEditor';

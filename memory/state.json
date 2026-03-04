@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "project_id": "proj-20260304-130207",
+  "created_at": "2026-03-04T13:02:07+08:00",
+  "updated_at": "2026-03-04T15:32:42+08:00",
+  "current_phase": "completed",
+  "phases": {
+    "discover": {
+      "status": "completed",
+      "started_at": "2026-03-04T13:02:07+08:00",
+      "completed_at": "2026-03-04T13:02:07+08:00",
+      "output": "memory/01-discovery.md"
+    },
+    "plan": {
+      "status": "completed",
+      "started_at": "2026-03-04T13:15:00+08:00",
+      "completed_at": "2026-03-04T13:15:00+08:00",
+      "output": [
+        "memory/02-architecture.md",
+        "memory/03-decisions.md",
+        "memory/04-conventions.md",
+        "memory/05-api-contract.md",
+        "memory/06-progress.md"
+      ]
+    },
+    "build": {
+      "status": "completed",
+      "timestamp": "2026-03-04T14:57:00+08:00",
+      "output": "deliver/code/",
+      "updated_at": "2026-03-04T14:57:00+08:00"
+    },
+    "polish": {
+      "status": "completed",
+      "timestamp": "2026-03-04T15:05:51+08:00",
+      "output": "memory/08-checklist.md",
+      "updated_at": "2026-03-04T15:05:51+08:00"
+    },
+    "deliver": {
+      "status": "completed",
+      "timestamp": "2026-03-04T15:32:42+08:00",
+      "output": [
+        "deliver/docs/",
+        "deliver/handoff/"
+      ],
+      "updated_at": "2026-03-04T15:32:42+08:00"
+    }
+  },
+  "completed_at": "2026-03-04T15:32:42+08:00",
+  "deliver_dir": "./deliver"
+}
