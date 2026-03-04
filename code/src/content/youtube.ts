@@ -1,6 +1,7 @@
 import {
   buildBatchCandidates,
   composeTranslatedSubtitle,
+  composeTranslatedSubtitleProgressive,
   mergeBatchTranslations,
 } from '@/content/shared/utils/youtube-batching';
 import { extractSubtitleSnapshot } from '@/content/shared/utils/youtube-subtitles';
@@ -25,8 +26,8 @@ interface BatchTranslateResponse {
   };
 }
 
-const BATCH_WINDOW_MS = 120;
-const MAX_BATCH_SIZE = 6;
+const BATCH_WINDOW_MS = 40;
+const MAX_BATCH_SIZE = 8;
 
 class YouTubeSubtitleTranslator {
   private readonly container: HTMLDivElement;
@@ -107,11 +108,11 @@ class YouTubeSubtitleTranslator {
     }
 
     const sourceText = snapshot.text;
-    const composed = this.renderPendingSubtitle(snapshot);
+    const completed = this.renderPendingSubtitle(snapshot);
     const candidates = this.collectBatchCandidates(snapshot.segments);
     this.enqueueBatch(candidates);
 
-    if (candidates.length || composed) {
+    if (candidates.length || completed) {
       return;
     }
 
@@ -199,10 +200,13 @@ class YouTubeSubtitleTranslator {
 
   private renderPendingSubtitle(
     snapshot: NonNullable<ReturnType<typeof extractSubtitleSnapshot>>,
-  ): string {
-    const composed = composeTranslatedSubtitle(snapshot.segments, this.translationCache);
-    this.translatedLine.textContent = composed || 'Translating...';
-    return composed;
+  ): boolean {
+    const progressive = composeTranslatedSubtitleProgressive(
+      snapshot.segments,
+      this.translationCache,
+    );
+    this.translatedLine.textContent = progressive.text || 'Translating...';
+    return progressive.complete;
   }
 
   private collectBatchCandidates(segments: string[]): string[] {

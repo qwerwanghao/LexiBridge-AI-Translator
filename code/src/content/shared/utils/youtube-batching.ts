@@ -62,3 +62,35 @@ export function composeTranslatedSubtitle(
 
   return translatedSegments.join(' ');
 }
+
+/**
+ * 按可用翻译即时拼接字幕，未命中的片段回退为原文。
+ */
+export function composeTranslatedSubtitleProgressive(
+  segments: string[],
+  translationCache: Map<string, string>,
+): { text: string; complete: boolean } {
+  const merged: string[] = [];
+  let complete = true;
+
+  for (const segment of segments) {
+    const normalized = segment.trim();
+    if (!normalized) {
+      continue;
+    }
+
+    const translated = translationCache.get(normalized);
+    if (translated) {
+      merged.push(translated);
+      continue;
+    }
+
+    complete = false;
+    merged.push(normalized);
+  }
+
+  return {
+    text: merged.join(' '),
+    complete,
+  };
+}
