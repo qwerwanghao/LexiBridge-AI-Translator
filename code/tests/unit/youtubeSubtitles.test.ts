@@ -28,8 +28,8 @@ describe('youtube subtitles utils', () => {
     `;
 
     const snapshot = extractSubtitleSnapshot(document);
-    expect(snapshot?.segments).toEqual(['Hello', 'world', 'world']);
-    expect(snapshot?.text).toBe('Hello world world');
+    expect(snapshot?.segments).toEqual(['Hello', 'world']);
+    expect(snapshot?.text).toBe('Hello world');
   });
 
   it('returns null when subtitle text is empty', () => {

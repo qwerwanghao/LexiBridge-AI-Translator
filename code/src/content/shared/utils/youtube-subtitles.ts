@@ -37,7 +37,8 @@ export function extractSubtitleSnapshot(root: ParentNode): SubtitleSnapshot | nu
     Array.from(container.querySelectorAll<HTMLElement>(selector)),
   )
     .map((element) => element.textContent?.trim() ?? '')
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((text, index, all) => index === 0 || text !== all[index - 1]);
 
   if (!segments.length) {
     return null;
