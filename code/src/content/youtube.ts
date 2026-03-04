@@ -64,7 +64,7 @@ class YouTubeSubtitleTranslator {
     this.container.style.borderRadius = '10px';
     this.container.style.backgroundColor = 'rgba(0, 0, 0, 0.65)';
     this.container.style.color = '#ffffff';
-    this.container.style.fontSize = '32px';
+    this.container.style.fontSize = '24px';
     this.container.style.lineHeight = '1.45';
     this.container.style.textAlign = 'center';
     this.container.style.pointerEvents = 'none';
@@ -114,7 +114,14 @@ class YouTubeSubtitleTranslator {
     const candidates = this.collectBatchCandidates(snapshot.segments);
     this.enqueueBatch(candidates);
 
-    if (candidates.length || completed) {
+    if (completed) {
+      return;
+    }
+
+    // 优先保证时效：即使批处理还在排队，也并行发起整句兜底翻译
+    // 避免出现“说了多句才翻一句”的体感延迟。
+    if (candidates.length) {
+      void this.translateWholeSubtitleOnce(sourceText);
       return;
     }
 
