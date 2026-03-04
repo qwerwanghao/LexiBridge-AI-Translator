@@ -1,7 +1,6 @@
 import {
   buildBatchCandidates,
   composeTranslatedSubtitle,
-  composeTranslatedSubtitleProgressive,
   mergeBatchTranslations,
 } from '@/content/shared/utils/youtube-batching';
 import { extractSubtitleSnapshot } from '@/content/shared/utils/youtube-subtitles';
@@ -234,12 +233,9 @@ class YouTubeSubtitleTranslator {
   private renderPendingSubtitle(
     snapshot: NonNullable<ReturnType<typeof extractSubtitleSnapshot>>,
   ): boolean {
-    const progressive = composeTranslatedSubtitleProgressive(
-      snapshot.segments,
-      this.translationCache,
-    );
-    this.translatedLine.textContent = progressive.text || 'Translating...';
-    return progressive.complete;
+    const composed = composeTranslatedSubtitle(snapshot.segments, this.translationCache);
+    this.translatedLine.textContent = composed || 'Translating...';
+    return Boolean(composed);
   }
 
   private collectBatchCandidates(segments: string[]): string[] {
