@@ -23,12 +23,13 @@ describe('youtube subtitles utils', () => {
       <div class="ytp-caption-window-container">
         <span class="ytp-caption-segment">  Hello </span>
         <span class="ytp-caption-segment">world </span>
+        <span class="ytp-caption-segment">world </span>
       </div>
     `;
 
     const snapshot = extractSubtitleSnapshot(document);
-    expect(snapshot?.segments).toEqual(['Hello', 'world']);
-    expect(snapshot?.text).toBe('Hello world');
+    expect(snapshot?.segments).toEqual(['Hello', 'world', 'world']);
+    expect(snapshot?.text).toBe('Hello world world');
   });
 
   it('returns null when subtitle text is empty', () => {

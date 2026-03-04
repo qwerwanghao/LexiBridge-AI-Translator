@@ -39,6 +39,7 @@ class YouTubeSubtitleTranslator {
   private readonly pendingSegments: Set<string>;
   private readonly inFlightSegments: Set<string>;
   private flushTimer: number | null;
+  private wholeSubtitleInFlightText: string | null;
 
   constructor() {
     this.container = document.createElement('div');
@@ -50,6 +51,7 @@ class YouTubeSubtitleTranslator {
     this.pendingSegments = new Set<string>();
     this.inFlightSegments = new Set<string>();
     this.flushTimer = null;
+    this.wholeSubtitleInFlightText = null;
 
     this.container.id = 'lexibridge-youtube-bilingual';
     this.container.style.position = 'fixed';
@@ -164,6 +166,17 @@ class YouTubeSubtitleTranslator {
 
     if (this.pendingSegments.size > 0) {
       this.enqueueBatch([]);
+      return;
+    }
+
+    const latestSnapshot = extractSubtitleSnapshot(document);
+    if (!latestSnapshot || latestSnapshot.text !== this.lastSubtitleText) {
+      return;
+    }
+
+    const composed = composeTranslatedSubtitle(latestSnapshot.segments, this.translationCache);
+    if (!composed) {
+      void this.translateWholeSubtitleOnce(latestSnapshot.text);
     }
   }
 
@@ -237,6 +250,21 @@ class YouTubeSubtitleTranslator {
     }
 
     this.translatedLine.textContent = response.error?.message ?? 'Translation failed';
+  }
+
+  private async translateWholeSubtitleOnce(sourceText: string): Promise<void> {
+    if (this.wholeSubtitleInFlightText === sourceText) {
+      return;
+    }
+
+    this.wholeSubtitleInFlightText = sourceText;
+    try {
+      await this.translateWholeSubtitle(sourceText);
+    } finally {
+      if (this.wholeSubtitleInFlightText === sourceText) {
+        this.wholeSubtitleInFlightText = null;
+      }
+    }
   }
 }
 
