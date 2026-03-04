@@ -64,7 +64,7 @@ class YouTubeSubtitleTranslator {
     this.container.style.borderRadius = '10px';
     this.container.style.backgroundColor = 'rgba(0, 0, 0, 0.65)';
     this.container.style.color = '#ffffff';
-    this.container.style.fontSize = '16px';
+    this.container.style.fontSize = '32px';
     this.container.style.lineHeight = '1.45';
     this.container.style.textAlign = 'center';
     this.container.style.pointerEvents = 'none';
