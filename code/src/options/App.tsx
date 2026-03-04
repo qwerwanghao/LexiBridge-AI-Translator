@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { ConfigPanel } from '@/options/components/ConfigPanel';
 import { Statistics } from '@/options/components/Statistics';
@@ -10,6 +10,33 @@ export function App() {
   const today = useMemo(() => new Date().toISOString(), []);
   const { apiConfig, autoTranslate } = useTranslationConfig();
   const setAutoTranslate = useOptionsStore((state) => state.setAutoTranslate);
+  const hydrateFromConfig = useOptionsStore((state) => state.hydrateFromConfig);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadConfig = async () => {
+      try {
+        const response = (await chrome.runtime.sendMessage({
+          type: 'GET_CONFIG',
+          payload: null,
+          timestamp: Date.now(),
+        })) as { success: boolean; data?: unknown };
+
+        if (!cancelled && response.success) {
+          hydrateFromConfig(response.data ?? {});
+        }
+      } catch {
+        // Keep defaults if config loading fails.
+      }
+    };
+
+    void loadConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrateFromConfig]);
 
   return (
     <main className="appContainer">
